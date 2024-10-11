@@ -9,5 +9,4 @@ public interface UserService {
     UserDTO findUser(String email, String password);
 
     boolean changePassword(String email, String password, String newPassword, String token);
-
 }
