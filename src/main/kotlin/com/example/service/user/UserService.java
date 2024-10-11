@@ -1,12 +1,16 @@
 package com.example.service.user;
 
+import com.example.user.UserDTO;
+import org.jetbrains.annotations.Nullable;
+import java.util.concurrent.CompletableFuture;
+
 public interface UserService {
 
-    UserDTO registerUser(CreateUserParams params);
+    CompletableFuture<UserDTO> registerUser(CreateUserParams params);
 
     boolean changeUsername(String token, String newUsername);
 
-    UserDTO findUser(String email, String password);
+    @Nullable UserDTO findUser(String email, String password);
 
-    boolean changePassword(String email, String password, String newPassword, String token);
+    boolean changePassword(String email, String password, String newPassword);
 }
