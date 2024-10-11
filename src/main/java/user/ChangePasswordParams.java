@@ -1,14 +1,14 @@
-package com.example.service.user;
+package user;
 
-public class ChangeUsernameParams {
+public class ChangePasswordParams {
     private String old_parol_user;
     private String new_parol_user;
-    private String username;
+    private String email;
 
-    public ChangeUsernameParams(String old_parol_user, String new_parol_user, String username) {
+    public ChangePasswordParams(String old_parol_user, String new_parol_user, String email) {
         this.old_parol_user = old_parol_user;
         this.new_parol_user = new_parol_user;
-        this.username = username;
+        this.email = email;
     }
     public String getOld_parol_user() {
         return old_parol_user;
@@ -16,8 +16,8 @@ public class ChangeUsernameParams {
     public String getNew_parol_user() {
         return new_parol_user;
     }
-    public String getUsername() {
-        return username;
+    public String getEmail() {
+        return email;
     }
     public void setOld_parol_user(String old_parol_user) {
         this.old_parol_user = old_parol_user;
@@ -25,7 +25,7 @@ public class ChangeUsernameParams {
     public void setNew_parol_user(String new_parol_user) {
         this.new_parol_user = new_parol_user;
     }
-    public void setUsername(String username) {
-        this.username = username;
+    public void setEmail(String email) {
+        this.email = email;
     }
 }
