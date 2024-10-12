@@ -1,21 +1,13 @@
 package user;
 
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
+@JsonAutoDetect
 public class CreateUserParams {
     private String email;
     private String username;
     private String password;
-
-    @JsonCreator
-    public CreateUserParams(@JsonProperty("email") String email,
-                            @JsonProperty("username") String username,
-                            @JsonProperty("password") String password) {
-        this.email = email;
-        this.username = username;
-        this.password = password;
-    }
 
     public String getEmail() {
         return email;
@@ -39,5 +31,14 @@ public class CreateUserParams {
 
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    @Override
+    public String toString() {
+        return "CreateUserParams{" +
+                "email='" + email + '\'' +
+                ", username='" + username + '\'' +
+                ", password='" + password + '\'' +
+                '}';
     }
 }
