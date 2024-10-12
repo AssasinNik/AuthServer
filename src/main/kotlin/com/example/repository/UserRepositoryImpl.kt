@@ -7,10 +7,11 @@ import user.CreateUserParams
 import user.LoginUserParams
 
 import com.example.utils.Response
+import kotlinx.coroutines.future.await
 
 class UserRepositoryImpl(private val userService: UserService) : UserRepository {
     override suspend fun registerUser(params: CreateUserParams): Response<Any>{
-        val user=userService.registerUser(params)
+        val user=userService.registerUser(params).await()
         if(user != null){
             return Response.SuccessResponse(data = user)
         }else{

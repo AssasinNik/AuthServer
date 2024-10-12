@@ -27,7 +27,7 @@ class UserServiceImpl : UserService {
         dbQuery {
             statement = Users.insert {
                 it[email] = params.email
-                it[parol_user] = hash(params.password)
+                it[parol_user] = params.password
                 it[username] = params.username
             }
         }
