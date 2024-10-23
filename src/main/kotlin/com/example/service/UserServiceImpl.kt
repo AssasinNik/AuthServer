@@ -42,7 +42,7 @@ class UserServiceImpl : UserService {
     }
     private suspend fun asyncOperationFind(email: String, password: String): UserDTO? {
         return dbQuery {
-            Users.select { (Users.email eq email) and (Users.parol_user eq hash(password)) }
+            Users.select { (Users.email eq email) and (Users.parol_user eq password) }
                 .mapNotNull { rowToUser(it) }
                 .singleOrNull()
         }
