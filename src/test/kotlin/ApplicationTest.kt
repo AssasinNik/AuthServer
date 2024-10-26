@@ -53,3 +53,22 @@ class DatabaseTests {
         }
     }
 }
+
+class PostRequestTest {
+    @Test
+    fun testPostRequest() = testApplication {
+        application {
+            configureRouting()
+        }
+        val response = client.post("http://localhost:80/auth/register") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"username": "Илья",
+    "email": "ilya1.bystrikov19@gmail.com",
+    "parol_user": "Parol1810!"}""") // пример тела запроса
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertEquals("{\"exception\":null,\"message\":\"Email already exists\",\"statusCode\":{\"value\":200,\"description\":\"OK\"}}", response.bodyAsText())
+    }
+}
+
