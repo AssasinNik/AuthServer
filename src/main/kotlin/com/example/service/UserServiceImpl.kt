@@ -7,7 +7,7 @@ import user.CreateUserParams
 import user.LoginUserParams
 import com.example.user.UserDTO
 import com.example.user.Users
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.*
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.statements.InsertStatement
 import service.UserService
@@ -24,14 +24,20 @@ class UserServiceImpl : UserService {
     }
     private suspend fun asyncOperationRegister(params: CreateUserParams): UserDTO? {
         var statement: InsertStatement<Number>? = null
-        dbQuery {
-            statement = Users.insert {
-                it[email] = params.email
-                it[parol_user] = params.password
-                it[username] = params.username
+        var flag: UserDTO?
+        runBlocking { flag=asyncOperationFind(params.email,params.password) }
+        if (flag != null){
+            dbQuery {
+                statement = Users.insert {
+                    it[email] = params.email
+                    it[parol_user] = params.password
+                    it[username] = params.username
+                }
             }
+            return allrowToUser(statement?.resultedValues?.get(0))
+        }else{
+            return null
         }
-        return allrowToUser(statement?.resultedValues?.get(0))
     }
     override fun findUser(params: LoginUserParams): CompletableFuture<UserDTO?>{
         return CompletableFuture.supplyAsync {
