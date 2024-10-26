@@ -85,14 +85,14 @@ class UserServiceImpl : UserService {
     private suspend fun asyncOperationChangePs(email: String, password: String, newPassword: String): Boolean {
         return dbQuery {
             val user = Users.select {
-                (Users.email eq email) and (Users.parol_user eq hash(password))
+                (Users.email eq email) and (Users.parol_user eq password)
             }
                 .mapNotNull { rowToUser(it) }
                 .singleOrNull()
 
             if (user != null) {
                 val updatedRows = Users.update({ Users.email eq email }) {
-                    it[parol_user] = hash(newPassword)
+                    it[parol_user] = newPassword
                 }
                 updatedRows > 0
             } else {

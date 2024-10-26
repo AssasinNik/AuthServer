@@ -19,7 +19,7 @@ class UserRepositoryImpl(private val userService: UserService) : UserRepository 
         }
     }
     override suspend fun loginUser(params: LoginUserParams): Response<Any> {
-        val user= userService.findUser(params)
+        val user= userService.findUser(params).await()
         if(user!=null){
             return Response.SuccessResponse(data = user)
         }
