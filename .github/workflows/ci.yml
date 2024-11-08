@@ -1,4 +1,5 @@
-name: CI
+name: CI 
+
 on:
   push:
     branches:
@@ -10,44 +11,165 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    environment: auth
 
     steps:
+      # Шаг для клонирования кода репозитория
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
+      # Установка JDK версии 11
       - name: Set up JDK
-        uses: actions/setup-java@v2
+        uses: actions/setup-java@v3
         with:
           java-version: '11'
           distribution: 'temurin'
 
+      # Сборка проекта и запуск тестов
       - name: Build and Run Tests
         run: |
-          ./gradlew build test
+          echo "🚀 Начинаем сборку проекта и запуск тестов..."
+          ./gradlew clean build test
         continue-on-error: true
 
+      # Парсинг результатов тестирования и генерация сводки
       - name: Parse Test Results
         if: always()
         run: |
-          PASSED=$(grep -oP "(?<=Tests run: )\d+(?=, Failures: 0)" build/test-results/test/*.xml | wc -l)
-          FAILED=$(grep -oP "(?<=Failures: )\d+" build/test-results/test/*.xml | paste -sd+ - | bc)
-          TOTAL=$(grep -oP "(?<=Tests run: )\d+" build/test-results/test/*.xml | paste -sd+ - | bc)
-          SKIPPED=$(grep -oP "(?<=Skipped: )\d+" build/test-results/test/*.xml | paste -sd+ - | bc)
+          echo "📄 Парсинг результатов тестирования..."
+          # Удаляем предыдущие результаты
+          rm -f test-results.txt
 
-          echo "📊 Результаты тестирования:" > test-results.txt
-          echo "✅ Успешных тестов: $PASSED" >> test-results.txt
-          echo "❌ Проваленных тестов: $FAILED" >> test-results.txt
-          echo "🟡 Пропущенных тестов: $SKIPPED" >> test-results.txt
-          echo "🔹 Всего тестов: $TOTAL" >> test-results.txt
+          if ls build/test-results/test/*.xml 1> /dev/null 2>&1; then
+            # Инициализируем счетчики
+            TOTAL_TESTS=0
+            TOTAL_FAILURES=0
+            TOTAL_SKIPPED=0
 
+            # Функция для экранирования специальных символов в MarkdownV2
+            escape_markdown() {
+              local input="$1"
+              echo "$input" | sed -E 's/([_*\[\]()~`>#+=|{}\.\!\-])/\\\1/g'
+            }
+
+            # Переменная для деталей проваленных тестов
+            FAILED_TESTS_DETAILS=""
+
+            for file in build/test-results/test/*.xml; do
+              if [ -f "$file" ]; then
+                # Извлекаем значения атрибутов tests, failures и skipped
+                tests=$(grep -oE 'tests="[0-9]+"' "$file" | head -1 | grep -oE '[0-9]+')
+                failures=$(grep -oE 'failures="[0-9]+"' "$file" | head -1 | grep -oE '[0-9]+')
+                skipped=$(grep -oE 'skipped="[0-9]+"' "$file" | head -1 | grep -oE '[0-9]+')
+
+                # Задаем значения по умолчанию, если переменные пустые
+                tests=${tests:-0}
+                failures=${failures:-0}
+                skipped=${skipped:-0}
+
+                TOTAL_TESTS=$((TOTAL_TESTS + tests))
+                TOTAL_FAILURES=$((TOTAL_FAILURES + failures))
+                TOTAL_SKIPPED=$((TOTAL_SKIPPED + skipped))
+
+                # Если есть проваленные тесты, собираем их детали
+                if [ "$failures" -gt 0 ]; then
+                  while read -r testcase; do
+                    classname=$(echo "$testcase" | grep -oE 'classname="[^"]+"' | cut -d'"' -f2)
+                    name=$(echo "$testcase" | grep -oE 'name="[^"]+"' | cut -d'"' -f2)
+                    # Извлекаем сообщение об ошибке между тегами <failure>
+                    message=$(echo "$testcase" | grep -Eoz '<failure[^>]*>(.*?)</failure>' | tr -d '\0' | sed 's/<failure[^>]*>//;s/<\/failure>//')
+                    # Убираем CDATA, если есть
+                    message=$(echo "$message" | sed 's/<!\[CDATA\[//;s/\]\]>//')
+                    # Обрезаем пробелы
+                    message=$(echo "$message" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+                    # Экранируем специальные символы
+                    classname=$(escape_markdown "$classname")
+                    name=$(escape_markdown "$name")
+                    message=$(escape_markdown "$message")
+                    # Добавляем детали в переменную
+                    FAILED_TESTS_DETAILS="${FAILED_TESTS_DETAILS}\n🔻 *${classname} - ${name}:*\n${message}"
+                  done < <(grep -Eoz '<testcase.*?<failure.*?</testcase>' "$file")
+                fi
+              fi
+            done
+
+            # Вычисляем количество успешных тестов
+            TOTAL_PASSED=$((TOTAL_TESTS - TOTAL_FAILURES - TOTAL_SKIPPED))
+
+            echo "Результаты тестирования:"
+            echo "✅ Успешных тестов: $TOTAL_PASSED"
+            echo "❌ Проваленных тестов: $TOTAL_FAILURES"
+            echo "🟡 Пропущенных тестов: $TOTAL_SKIPPED"
+            echo "🔹 Всего тестов: $TOTAL_TESTS"
+            echo "📊 *Результаты тестирования:*" > test-results.txt
+            echo "✅ *Успешных тестов:* $TOTAL_PASSED" >> test-results.txt
+            echo "❌ *Проваленных тестов:* $TOTAL_FAILURES" >> test-results.txt
+            echo "🟡 *Пропущенных тестов:* $TOTAL_SKIPPED" >> test-results.txt
+            echo "🔹 *Всего тестов:* $TOTAL_TESTS" >> test-results.txt
+
+            # Если есть проваленные тесты, добавляем их детали
+            if [ "$TOTAL_FAILURES" -gt 0 ]; then
+              echo -e "\n📋 *Подробности проваленных тестов:*" >> test-results.txt
+              echo -e "$FAILED_TESTS_DETAILS" >> test-results.txt
+            fi
+
+          else
+            echo "⚠️ Результаты тестирования не найдены."
+            echo "📊 *Результаты тестирования:*" > test-results.txt
+            echo "❗️ Результаты тестирования недоступны." >> test-results.txt
+          fi
+
+      # Отправка уведомления в Telegram с результатами тестирования
       - name: Send Telegram Notification
         if: always()
         env:
-	  ENVIRONMENT: auth
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
+          COMMIT_AUTHOR: ${{ github.event.head_commit.author.name || github.event.pusher.name || github.event.pull_request.user.login || github.actor }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message || github.event.pull_request.title }}
         run: |
+          echo "📲 Отправка уведомления в Telegram..."
+          if [ -z "$BOT_TOKEN" ] || [ -z "$CHAT_ID" ]; then
+            echo "❌ Ошибка: BOT_TOKEN или CHAT_ID не установлены."
+            exit 1
+          fi
+
+          # Функция для экранирования специальных символов
+          escape_markdown() {
+            local input="$1"
+            echo "$input" | sed -E 's/([_*\[\]()~`>#+=|{}\.\!\-])/\\\1/g'
+          }
+
           STATUS=$(cat test-results.txt)
-          curl -X POST https://api.telegram.org/bot$BOT_TOKEN/sendMessage \
-          -d chat_id=$CHAT_ID \
-          -d text="🏗️ Сборка завершена.\n$STATUS"
+          # Экранируем специальные символы в имени автора и сообщении коммита
+          COMMIT_AUTHOR_ESCAPED=$(escape_markdown "$COMMIT_AUTHOR")
+          COMMIT_MESSAGE_ESCAPED=$(escape_markdown "$COMMIT_MESSAGE")
+          STATUS_ESCAPED=$(escape_markdown "$STATUS")
+
+          MESSAGE=$'🏗 *Сборка завершена*\n👤 *Автор коммита:* '"$COMMIT_AUTHOR_ESCAPED"$'\n💬 *Сообщение коммита:* '"$COMMIT_MESSAGE_ESCAPED"$'\n\n'"$STATUS_ESCAPED"
+
+          # Проверяем длину сообщения
+          MESSAGE_LENGTH=${#MESSAGE}
+          if [ "$MESSAGE_LENGTH" -gt 4000 ]; then
+            # Если сообщение слишком длинное, отправляем как файл
+            echo "⚠️ Сообщение слишком длинное ($MESSAGE_LENGTH символов). Отправляем как файл."
+            echo "$MESSAGE" > message.txt
+            RESPONSE=$(curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendDocument" \
+              -F chat_id="$CHAT_ID" \
+              -F parse_mode="MarkdownV2" \
+              -F document=@"message.txt" \
+              -F caption="🏗 *Сборка завершена*\n👤 *Автор коммита:* $COMMIT_AUTHOR_ESCAPED\n💬 *Сообщение коммита:* $COMMIT_MESSAGE_ESCAPED")
+          else
+            RESPONSE=$(curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
+              -d chat_id="$CHAT_ID" \
+              -d parse_mode="MarkdownV2" \
+              --data-urlencode text="$MESSAGE")
+          fi
+
+          if echo "$RESPONSE" | grep -q '"ok":true'; then
+            echo "✅ Уведомление успешно отправлено."
+          else
+            echo "❌ Не удалось отправить уведомление."
+            echo "Ответ от Telegram API: $RESPONSE"
+            exit 1
+          fi
