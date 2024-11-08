@@ -146,7 +146,7 @@ jobs:
               escape_markdown() {
                 local input="$1"
                 # Простое экранирование символов, которые могут быть проблемой в Markdown
-                echo "$input" | sed -e 's/[&/\]/\\&/g' -e 's/[_*[\]()~`>#+\-=|{}.!]/\\&/g'
+                echo "$input" | sed -e 's/[&/\]/\\&/g' -e 's/[_*[\]()~`>#+\-=|{}.!]/\\&/g' -e 's/\./\\./g'
               }
               for file in build/test-results/test/*.xml; do
                 while read -r testcase; do
@@ -228,7 +228,7 @@ jobs:
           escape_markdown() {
             local input="$1"
             # Простое экранирование символов, которые могут быть проблемой в Markdown
-            echo "$input" | sed -e 's/[&/\]/\\&/g' -e 's/[_*[\]()~`>#+\-=|{}.!]/\\&/g'
+            echo "$input" | sed -e 's/[&/\]/\\&/g' -e 's/[_*[\]()~`>#+\-=|{}.!]/\\&/g' -e 's/\./\\./g'
           }
           STATUS=$(cat test-results.txt)
           # Экранируем специальные символы в сообщении коммита, имени автора и статусе
