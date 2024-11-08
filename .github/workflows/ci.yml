@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 name: CI 
+=======
+name: CI
+>>>>>>> 52bfc88fb3bba01f91657fa35d623528ec21b05c
 
 on:
   push:
@@ -39,6 +43,7 @@ jobs:
           echo "📄 Парсинг результатов тестирования..."
           # Удаляем предыдущие результаты
           rm -f test-results.txt
+<<<<<<< HEAD
 
           if ls build/test-results/test/*.xml 1> /dev/null 2>&1; then
             # Инициализируем счетчики
@@ -113,19 +118,70 @@ jobs:
               echo -e "$FAILED_TESTS_DETAILS" >> test-results.txt
             fi
 
+=======
+          if ls build/test-results/test/*.xml 1> /dev/null 2>&1; then
+            PASSED=$(grep -oP '<testsuite[^>]* tests="\K\d+' build/test-results/test/*.xml | paste -sd+ - | bc)
+            FAILED=$(grep -oP '<testsuite[^>]* failures="\K\d+' build/test-results/test/*.xml | paste -sd+ - | bc)
+            SKIPPED=$(grep -oP '<testsuite[^>]* skipped="\K\d+' build/test-results/test/*.xml | paste -sd+ - | bc)
+            TOTAL=$PASSED
+            # Проверяем, что переменные не пустые
+            PASSED=${PASSED:-0}
+            FAILED=${FAILED:-0}
+            SKIPPED=${SKIPPED:-0}
+            TOTAL=${TOTAL:-0}
+            echo "Результаты тестирования:"
+            echo "✅ Успешных тестов: $((PASSED - FAILED - SKIPPED))"
+            echo "❌ Проваленных тестов: $FAILED"
+            echo "🟡 Пропущенных тестов: $SKIPPED"
+            echo "🔹 Всего тестов: $TOTAL"
+            echo "📊 *Результаты тестирования:*" > test-results.txt
+            echo "✅ *Успешных тестов:* $((PASSED - FAILED - SKIPPED))" >> test-results.txt
+            echo "❌ *Проваленных тестов:* $FAILED" >> test-results.txt
+            echo "🟡 *Пропущенных тестов:* $SKIPPED" >> test-results.txt
+            echo "🔹 *Всего тестов:* $TOTAL" >> test-results.txt
+            # Если есть проваленные тесты, собираем информацию о них
+            if [ "$FAILED" -gt 0 ]; then
+              echo -e "\n📋 *Подробности проваленных тестов:*" >> test-results.txt
+              # Функция для экранирования специальных символов
+              escape_markdown() {
+                local input="$1"
+                # Простое экранирование символов, которые могут быть проблемой в Markdown
+                echo "$input" | sed -e 's/[&/\]/\\&/g' -e 's/[_*[\]()~`>#+\-=|{}.!]/\\&/g'
+              }
+              for file in build/test-results/test/*.xml; do
+                while read -r testcase; do
+                  classname=$(echo "$testcase" | grep -oP 'classname="\K[^"]+')
+                  name=$(echo "$testcase" | grep -oP 'name="\K[^"]+')
+                  message=$(echo "$testcase" | grep -oP '<failure message=".*?">\K.*?(?=</failure>)' | sed 's/<!\[CDATA\[//;s/\]\]>//')
+                  # Экранируем специальные символы
+                  classname=$(escape_markdown "$classname")
+                  name=$(escape_markdown "$name")
+                  message=$(escape_markdown "$message")
+                  echo -e "🔻 *$classname - $name:*\n$message" >> test-results.txt
+                done < <(grep -Pzo '<testcase.*?<failure.*?</testcase>' "$file")
+              done
+            fi
+>>>>>>> 52bfc88fb3bba01f91657fa35d623528ec21b05c
           else
             echo "⚠️ Результаты тестирования не найдены."
             echo "📊 *Результаты тестирования:*" > test-results.txt
             echo "❗️ Результаты тестирования недоступны." >> test-results.txt
           fi
+<<<<<<< HEAD
 
+=======
+>>>>>>> 52bfc88fb3bba01f91657fa35d623528ec21b05c
       # Отправка уведомления в Telegram с результатами тестирования
       - name: Send Telegram Notification
         if: always()
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
+<<<<<<< HEAD
           COMMIT_AUTHOR: ${{ github.event.head_commit.author.name || github.event.pusher.name || github.event.pull_request.user.login || github.actor }}
+=======
+          COMMIT_AUTHOR: ${{ github.event.head_commit.author.name || github.event.pull_request.user.login || github.actor }}
+>>>>>>> 52bfc88fb3bba01f91657fa35d623528ec21b05c
           COMMIT_MESSAGE: ${{ github.event.head_commit.message || github.event.pull_request.title }}
         run: |
           echo "📲 Отправка уведомления в Telegram..."
@@ -133,6 +189,7 @@ jobs:
             echo "❌ Ошибка: BOT_TOKEN или CHAT_ID не установлены."
             exit 1
           fi
+<<<<<<< HEAD
 
           # Функция для экранирования специальных символов
           escape_markdown() {
@@ -166,10 +223,32 @@ jobs:
               --data-urlencode text="$MESSAGE")
           fi
 
+=======
+          # Функция для экранирования специальных символов
+          escape_markdown() {
+            local input="$1"
+            # Простое экранирование символов, которые могут быть проблемой в Markdown
+            echo "$input" | sed -e 's/[&/\]/\\&/g' -e 's/[_*[\]()~`>#+\-=|{}.!]/\\&/g'
+          }
+          STATUS=$(cat test-results.txt)
+          # Экранируем специальные символы в сообщении коммита, имени автора и статусе
+          COMMIT_AUTHOR_ESCAPED=$(escape_markdown "$COMMIT_AUTHOR")
+          COMMIT_MESSAGE_ESCAPED=$(escape_markdown "$COMMIT_MESSAGE")
+          STATUS_ESCAPED=$(escape_markdown "$STATUS")
+          MESSAGE=$'🏗 *Сборка завершена*\n👤 *Автор коммита:* '"$COMMIT_AUTHOR_ESCAPED"$'\n💬 *Сообщение коммита:* '"$COMMIT_MESSAGE_ESCAPED"$'\n\n'"$STATUS_ESCAPED"
+          RESPONSE=$(curl -s -X POST https://api.telegram.org/bot$BOT_TOKEN/sendMessage \
+            -d chat_id="$CHAT_ID" \
+            -d parse_mode="MarkdownV2" \
+            --data-urlencode text="$MESSAGE")
+>>>>>>> 52bfc88fb3bba01f91657fa35d623528ec21b05c
           if echo "$RESPONSE" | grep -q '"ok":true'; then
             echo "✅ Уведомление успешно отправлено."
           else
             echo "❌ Не удалось отправить уведомление."
             echo "Ответ от Telegram API: $RESPONSE"
             exit 1
+<<<<<<< HEAD
           fi
+=======
+          fi
+>>>>>>> 52bfc88fb3bba01f91657fa35d623528ec21b05c
