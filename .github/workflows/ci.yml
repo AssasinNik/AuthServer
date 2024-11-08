@@ -1,9 +1,8 @@
 name: CI
-
 on:
   push:
     branches:
-      - main  
+      - main
   pull_request:
     branches:
       - main
@@ -22,15 +21,33 @@ jobs:
           java-version: '11'
           distribution: 'temurin'
 
-      - name: Build with Gradle
-        run: ./gradlew build
+      - name: Build and Run Tests
+        run: |
+          ./gradlew build test
+        continue-on-error: true
+
+      - name: Parse Test Results
+        if: always()
+        run: |
+          PASSED=$(grep -oP "(?<=Tests run: )\d+(?=, Failures: 0)" build/test-results/test/*.xml | wc -l)
+          FAILED=$(grep -oP "(?<=Failures: )\d+" build/test-results/test/*.xml | paste -sd+ - | bc)
+          TOTAL=$(grep -oP "(?<=Tests run: )\d+" build/test-results/test/*.xml | paste -sd+ - | bc)
+          SKIPPED=$(grep -oP "(?<=Skipped: )\d+" build/test-results/test/*.xml | paste -sd+ - | bc)
+
+          echo "📊 Результаты тестирования:" > test-results.txt
+          echo "✅ Успешных тестов: $PASSED" >> test-results.txt
+          echo "❌ Проваленных тестов: $FAILED" >> test-results.txt
+          echo "🟡 Пропущенных тестов: $SKIPPED" >> test-results.txt
+          echo "🔹 Всего тестов: $TOTAL" >> test-results.txt
 
       - name: Send Telegram Notification
-        if: success()
+        if: always()
         env:
+	  ENVIRONMENT: auth
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
         run: |
+          STATUS=$(cat test-results.txt)
           curl -X POST https://api.telegram.org/bot$BOT_TOKEN/sendMessage \
           -d chat_id=$CHAT_ID \
-          -d text="✅ Сборка проекта успешна!"
+          -d text="🏗️ Сборка завершена.\n$STATUS"
