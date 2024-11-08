@@ -14,58 +14,71 @@ jobs:
     environment: auth
 
     steps:
-      # Шаг для клонирования кода репозитория
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # Установка JDK версии 11
       - name: Set up JDK
         uses: actions/setup-java@v3
         with:
           java-version: '11'
           distribution: 'temurin'
 
-      # Сборка проекта и запуск тестов
       - name: Build and Run Tests
         run: |
           echo "🚀 Начинаем сборку проекта и запуск тестов..."
-          ./gradlew build test
+          ./gradlew clean build test
         continue-on-error: true
 
-      # Парсинг результатов тестирования и генерация сводки
       - name: Parse Test Results
         if: always()
         run: |
           echo "📄 Парсинг результатов тестирования..."
+          # Удаляем предыдущие результаты
+          rm -f test-results.txt
+
           if ls build/test-results/test/*.xml 1> /dev/null 2>&1; then
-            PASSED=$(grep -oP "(?<=<testsuite ).*?(?=>)" build/test-results/test/*.xml | grep -oP "(?<=tests=\")\d+" | paste -sd+ - | bc)
-            FAILED=$(grep -oP "(?<=<testsuite ).*?(?=>)" build/test-results/test/*.xml | grep -oP "(?<=failures=\")\d+" | paste -sd+ - | bc)
-            SKIPPED=$(grep -oP "(?<=<testsuite ).*?(?=>)" build/test-results/test/*.xml | grep -oP "(?<=skipped=\")\d+" | paste -sd+ - | bc)
+            PASSED=$(grep -oP '(?<=tests=")\d+' build/test-results/test/*.xml | paste -sd+ - | bc)
+            FAILED=$(grep -oP '(?<=failures=")\d+' build/test-results/test/*.xml | paste -sd+ - | bc)
+            SKIPPED=$(grep -oP '(?<=skipped=")\d+' build/test-results/test/*.xml | paste -sd+ - | bc)
             TOTAL=$((PASSED + FAILED + SKIPPED))
 
             echo "Результаты тестирования:"
-            echo "✅ Успешных тестов: $((TOTAL - FAILED - SKIPPED))"
+            echo "✅ Успешных тестов: $((PASSED - FAILED - SKIPPED))"
             echo "❌ Проваленных тестов: $FAILED"
             echo "🟡 Пропущенных тестов: $SKIPPED"
             echo "🔹 Всего тестов: $TOTAL"
 
-            echo "📊 Результаты тестирования:" > test-results.txt
-            echo "✅ Успешных тестов: $((TOTAL - FAILED - SKIPPED))" >> test-results.txt
-            echo "❌ Проваленных тестов: $FAILED" >> test-results.txt
-            echo "🟡 Пропущенных тестов: $SKIPPED" >> test-results.txt
-            echo "🔹 Всего тестов: $TOTAL" >> test-results.txt
+            echo "📊 *Результаты тестирования:*" > test-results.txt
+            echo "✅ *Успешных тестов:* $((PASSED - FAILED - SKIPPED))" >> test-results.txt
+            echo "❌ *Проваленных тестов:* $FAILED" >> test-results.txt
+            echo "🟡 *Пропущенных тестов:* $SKIPPED" >> test-results.txt
+            echo "🔹 *Всего тестов:* $TOTAL" >> test-results.txt
+
+            # Если есть проваленные тесты, собираем информацию о них
+            if [ "$FAILED" -gt 0 ]; then
+              echo -e "\n📋 *Подробности проваленных тестов:*" >> test-results.txt
+              for file in build/test-results/test/*.xml; do
+                while read -r testcase; do
+                  classname=$(echo "$testcase" | grep -oP 'classname="\K[^"]+')
+                  name=$(echo "$testcase" | grep -oP 'name="\K[^"]+')
+                  message=$(echo "$testcase" | grep -oP '<failure message="\K[^"]+' | sed 's/<!\[CDATA\[//;s/\]\]>//')
+                  echo "🔻 *$classname - $name:* $message" >> test-results.txt
+                done < <(grep -Pzo '<testcase.*?<failure.*?</testcase>' "$file")
+              done
+            fi
           else
             echo "⚠️ Результаты тестирования не найдены."
-            echo "📊 Результаты тестирования:" > test-results.txt
+            echo "📊 *Результаты тестирования:*" > test-results.txt
             echo "❗️ Результаты тестирования недоступны." >> test-results.txt
           fi
 
-      # Отправка уведомления в Telegram с результатами тестирования
       - name: Send Telegram Notification
         if: always()
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
+          COMMIT_AUTHOR: ${{ github.event.head_commit.author.name || github.event.pull_request.user.login || github.actor }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message || github.event.pull_request.title }}
         run: |
           echo "📲 Отправка уведомления в Telegram..."
           if [ -z "$BOT_TOKEN" ] || [ -z "$CHAT_ID" ]; then
@@ -73,9 +86,11 @@ jobs:
             exit 1
           fi
           STATUS=$(cat test-results.txt)
+          MESSAGE="🏗 *Сборка завершена*\n👤 *Автор коммита:* $COMMIT_AUTHOR\n💬 *Сообщение коммита:* $COMMIT_MESSAGE\n\n$STATUS"
           RESPONSE=$(curl -s -X POST https://api.telegram.org/bot$BOT_TOKEN/sendMessage \
-            -d chat_id=$CHAT_ID \
-            --data-urlencode text="🏗 Сборка завершена.\n$STATUS")
+            -d chat_id="$CHAT_ID" \
+            -d parse_mode="Markdown" \
+            --data-urlencode text="$MESSAGE")
           if echo "$RESPONSE" | grep -q '"ok":true'; then
             echo "✅ Уведомление успешно отправлено."
           else
