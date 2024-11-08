@@ -16,9 +16,9 @@ object DataBase {
     private fun hikari(): HikariDataSource {
         val config = HikariConfig()
         config.driverClassName = "org.postgresql.Driver"
-        config.jdbcUrl = "jdbc:postgresql://dpg-crrsutogph6c738lcfag-a.oregon-postgres.render.com:5432/auth_08tq"
-        config.username = "auth_08tq_user"
-        config.password = "JzBS94hQkXmBAdb0TDXmmjokOFHrzrKk"
+        config.jdbcUrl = "jdbc:postgresql://dpg-csn6a6e8ii6s73df57d0-a.oregon-postgres.render.com:5432/auth2_oxc8"
+        config.username = "auth2_oxc8_user"
+        config.password = "GbL5K8A22799DubfsZkz6VELe5DbZ59E"
 
         config.maximumPoolSize = 3
         config.isAutoCommit = false
