@@ -104,7 +104,7 @@ jobs:
           # Отправляем сообщение в Telegram
           RESPONSE=$(curl -s -X POST https://api.telegram.org/bot$BOT_TOKEN/sendMessage \
             -d chat_id=$CHAT_ID \
-            --data-urlencode text="🏗 Сборка завершена          👤 Автор коммита: $AUTHOR                     💬 Сообщение коммита: $COMMIT_MSG              $STATUS")
+            --data-urlencode text="🏗 Сборка завершена          👤 Автор коммита: $AUTHOR                         💬 Сообщение коммита: $COMMIT_MSG                        $STATUS")
           
           if echo "$RESPONSE" | grep -q '"ok":true'; then
             echo "✅ Уведомление успешно отправлено."
