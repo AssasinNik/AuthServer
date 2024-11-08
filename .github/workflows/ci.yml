@@ -14,21 +14,25 @@ jobs:
     environment: auth
 
     steps:
+      # Шаг для клонирования кода репозитория
       - name: Checkout code
         uses: actions/checkout@v3
 
+      # Установка JDK версии 11
       - name: Set up JDK
         uses: actions/setup-java@v3
         with:
           java-version: '11'
           distribution: 'temurin'
 
+      # Сборка проекта и запуск тестов
       - name: Build and Run Tests
         run: |
           echo "🚀 Начинаем сборку проекта и запуск тестов..."
           ./gradlew clean build test
         continue-on-error: true
 
+      # Парсинг результатов тестирования и генерация сводки
       - name: Parse Test Results
         if: always()
         run: |
@@ -37,10 +41,16 @@ jobs:
           rm -f test-results.txt
 
           if ls build/test-results/test/*.xml 1> /dev/null 2>&1; then
-            PASSED=$(grep -oP '(?<=tests=")\d+' build/test-results/test/*.xml | paste -sd+ - | bc)
-            FAILED=$(grep -oP '(?<=failures=")\d+' build/test-results/test/*.xml | paste -sd+ - | bc)
-            SKIPPED=$(grep -oP '(?<=skipped=")\d+' build/test-results/test/*.xml | paste -sd+ - | bc)
-            TOTAL=$((PASSED + FAILED + SKIPPED))
+            PASSED=$(grep -oP '(?<=<testsuite[^>]* tests=")\d+' build/test-results/test/*.xml | paste -sd+ - | bc)
+            FAILED=$(grep -oP '(?<=<testsuite[^>]* failures=")\d+' build/test-results/test/*.xml | paste -sd+ - | bc)
+            SKIPPED=$(grep -oP '(?<=<testsuite[^>]* skipped=")\d+' build/test-results/test/*.xml | paste -sd+ - | bc)
+            TOTAL=$(grep -oP '(?<=<testsuite[^>]* tests=")\d+' build/test-results/test/*.xml | paste -sd+ - | bc)
+
+            # Проверяем, что переменные не пустые
+            PASSED=${PASSED:-0}
+            FAILED=${FAILED:-0}
+            SKIPPED=${SKIPPED:-0}
+            TOTAL=${TOTAL:-0}
 
             echo "Результаты тестирования:"
             echo "✅ Успешных тестов: $((PASSED - FAILED - SKIPPED))"
@@ -61,8 +71,10 @@ jobs:
                 while read -r testcase; do
                   classname=$(echo "$testcase" | grep -oP 'classname="\K[^"]+')
                   name=$(echo "$testcase" | grep -oP 'name="\K[^"]+')
-                  message=$(echo "$testcase" | grep -oP '<failure message="\K[^"]+' | sed 's/<!\[CDATA\[//;s/\]\]>//')
-                  echo "🔻 *$classname - $name:* $message" >> test-results.txt
+                  message=$(echo "$testcase" | grep -oP '<failure message=".*?">\K.*?(?=</failure>)' | sed 's/<!\[CDATA\[//;s/\]\]>//')
+                  # Экранируем специальные символы
+                  message=$(echo "$message" | sed 's/[_*`\[]/\\&/g')
+                  echo "🔻 *$classname - $name:*\n$message" >> test-results.txt
                 done < <(grep -Pzo '<testcase.*?<failure.*?</testcase>' "$file")
               done
             fi
@@ -72,6 +84,7 @@ jobs:
             echo "❗️ Результаты тестирования недоступны." >> test-results.txt
           fi
 
+      # Отправка уведомления в Telegram с результатами тестирования
       - name: Send Telegram Notification
         if: always()
         env:
@@ -86,10 +99,13 @@ jobs:
             exit 1
           fi
           STATUS=$(cat test-results.txt)
-          MESSAGE="🏗 *Сборка завершена*\n👤 *Автор коммита:* $COMMIT_AUTHOR\n💬 *Сообщение коммита:* $COMMIT_MESSAGE\n\n$STATUS"
+          # Экранируем специальные символы в сообщении коммита и имени автора
+          COMMIT_AUTHOR_ESCAPED=$(echo "$COMMIT_AUTHOR" | sed 's/[_*`\[]/\\&/g')
+          COMMIT_MESSAGE_ESCAPED=$(echo "$COMMIT_MESSAGE" | sed 's/[_*`\[]/\\&/g')
+          MESSAGE="🏗 *Сборка завершена*\n👤 *Автор коммита:* $COMMIT_AUTHOR_ESCAPED\n💬 *Сообщение коммита:* $COMMIT_MESSAGE_ESCAPED\n\n$STATUS"
           RESPONSE=$(curl -s -X POST https://api.telegram.org/bot$BOT_TOKEN/sendMessage \
             -d chat_id="$CHAT_ID" \
-            -d parse_mode="Markdown" \
+            -d parse_mode="MarkdownV2" \
             --data-urlencode text="$MESSAGE")
           if echo "$RESPONSE" | grep -q '"ok":true'; then
             echo "✅ Уведомление успешно отправлено."
