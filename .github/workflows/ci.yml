@@ -39,41 +39,34 @@ jobs:
           echo "📄 Парсинг результатов тестирования..."
           # Удаляем предыдущие результаты
           rm -f test-results.txt
-
           if ls build/test-results/test/*.xml 1> /dev/null 2>&1; then
             PASSED=$(grep -oP '<testsuite[^>]* tests="\K\d+' build/test-results/test/*.xml | paste -sd+ - | bc)
             FAILED=$(grep -oP '<testsuite[^>]* failures="\K\d+' build/test-results/test/*.xml | paste -sd+ - | bc)
             SKIPPED=$(grep -oP '<testsuite[^>]* skipped="\K\d+' build/test-results/test/*.xml | paste -sd+ - | bc)
             TOTAL=$PASSED
-
             # Проверяем, что переменные не пустые
             PASSED=${PASSED:-0}
             FAILED=${FAILED:-0}
             SKIPPED=${SKIPPED:-0}
             TOTAL=${TOTAL:-0}
-
             echo "Результаты тестирования:"
             echo "✅ Успешных тестов: $((PASSED - FAILED - SKIPPED))"
             echo "❌ Проваленных тестов: $FAILED"
             echo "🟡 Пропущенных тестов: $SKIPPED"
             echo "🔹 Всего тестов: $TOTAL"
-
             echo "📊 *Результаты тестирования:*" > test-results.txt
             echo "✅ *Успешных тестов:* $((PASSED - FAILED - SKIPPED))" >> test-results.txt
             echo "❌ *Проваленных тестов:* $FAILED" >> test-results.txt
             echo "🟡 *Пропущенных тестов:* $SKIPPED" >> test-results.txt
             echo "🔹 *Всего тестов:* $TOTAL" >> test-results.txt
-
             # Если есть проваленные тесты, собираем информацию о них
             if [ "$FAILED" -gt 0 ]; then
               echo -e "\n📋 *Подробности проваленных тестов:*" >> test-results.txt
-
               # Функция для экранирования специальных символов
               escape_markdown() {
                 local input="$1"
-                echo "$input" | sed -E 's/([_*\[\]()~`>#+\-=|{}\.!])/\\\1/g'
+                echo "$input" | sed -E 's/([_*[\]()~`>#+\-=|{}.!])/\\\1/g'
               }
-
               for file in build/test-results/test/*.xml; do
                 while read -r testcase; do
                   classname=$(echo "$testcase" | grep -oP 'classname="\K[^"]+')
@@ -92,7 +85,6 @@ jobs:
             echo "📊 *Результаты тестирования:*" > test-results.txt
             echo "❗️ Результаты тестирования недоступны." >> test-results.txt
           fi
-
       # Отправка уведомления в Telegram с результатами тестирования
       - name: Send Telegram Notification
         if: always()
@@ -107,13 +99,11 @@ jobs:
             echo "❌ Ошибка: BOT_TOKEN или CHAT_ID не установлены."
             exit 1
           fi
-
           # Функция для экранирования специальных символов
           escape_markdown() {
             local input="$1"
-            echo "$input" | sed -E 's/([_*\[\]()~`>#+\-=|{}\.!])/\\\1/g'
+            echo "$input" | sed -E 's/([_*[\]()~`>#+\-=|{}.!])/\\\1/g'
           }
-
           STATUS=$(cat test-results.txt)
           # Экранируем специальные символы в сообщении коммита, имени автора и статусе
           COMMIT_AUTHOR_ESCAPED=$(escape_markdown "$COMMIT_AUTHOR")
