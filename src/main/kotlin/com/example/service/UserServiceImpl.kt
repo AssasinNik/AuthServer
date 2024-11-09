@@ -8,6 +8,7 @@ import user.LoginUserParams
 import com.example.user.UserDTO
 import com.example.user.Users
 import kotlinx.coroutines.*
+import kotlinx.coroutines.future.await
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.statements.InsertStatement
 import service.UserService
@@ -25,8 +26,11 @@ class UserServiceImpl : UserService {
     private suspend fun asyncOperationRegister(params: CreateUserParams): UserDTO? {
         var statement: InsertStatement<Number>? = null
         var flag: UserDTO?
-        runBlocking { flag=asyncOperationFind(params.email,params.password) }
-        if (flag != null){
+        runBlocking {
+            val user =findUser(LoginUserParams(params.email, params.password)).await()
+            flag = user
+        }
+        if (flag == null){
             dbQuery {
                 statement = Users.insert {
                     it[email] = params.email
@@ -42,16 +46,17 @@ class UserServiceImpl : UserService {
     override fun findUser(params: LoginUserParams): CompletableFuture<UserDTO?>{
         return CompletableFuture.supplyAsync {
             runBlocking {
-                asyncOperationFind(params.getEmail(), params.getParol_user())
+                asyncOperationFind(params.getEmail())
             }
         }
     }
-    private suspend fun asyncOperationFind(email: String, password: String): UserDTO? {
-        return dbQuery {
-            Users.select { (Users.email eq email) and (Users.parol_user eq password) }
+    private suspend fun asyncOperationFind(email: String): UserDTO? {
+        val user = dbQuery {
+            Users.select { (Users.email eq email)}
                 .mapNotNull { rowToUser(it) }
                 .singleOrNull()
         }
+        return user
     }
 
     override fun changeUsername(email: String, name: String, newUsername: String): CompletableFuture<Boolean> {
