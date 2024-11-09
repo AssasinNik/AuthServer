@@ -17,6 +17,7 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.junit.jupiter.api.Assertions.assertEquals
 import service.UserService
 import kotlin.test.*
+import com.example.secure.*
 
 object TestTable : Table() {
     val id = integer("id").autoIncrement()
@@ -25,7 +26,6 @@ object TestTable : Table() {
 }
 
 class ApplicationTest {
-
     @Test
     fun testRoot() = testApplication {
         application {
@@ -35,6 +35,44 @@ class ApplicationTest {
             assertEquals(HttpStatusCode.OK, status)
             assertEquals("meow Auth", bodyAsText())
         }
+    }
+
+    @Test
+    fun test_password_hashing_and_verification() {
+        val password = "MySecurePassword123!"
+        val hashedPassword = hash(password)
+
+        assertNotEquals(password, hashedPassword)
+
+        assertTrue(verifyPassword(password, hashedPassword))
+
+        assertFalse(verifyPassword("WrongPassword", hashedPassword))
+    }
+
+    @Test
+    fun test_random_email_generation() {
+        val email = generateRandomEmail()
+
+        assertTrue(email.contains("@"))
+
+        val validDomains = listOf("gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "example.com")
+        val domain = email.substringAfter("@")
+        assertTrue(validDomains.contains(domain))
+
+
+        val username = email.substringBefore("@")
+        assertFalse(username.isEmpty())
+    }
+
+    @Test
+    fun test_random_string_generation() {
+        val length = 10
+        val randomString = generateRandomString(length)
+
+
+        assertEquals(length, randomString.length)
+
+        assertTrue(randomString.all { it in 'a'..'z' || it in '0'..'9' })
     }
 }
 
@@ -67,21 +105,6 @@ class DatabaseTests {
 
 class PostRequestTest {
 
-
-    fun generateRandomEmail(): String {
-        val domains = listOf("gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "example.com")
-        val randomUsername = generateRandomString(8) // Генерируем случайное имя пользователя
-        val randomDomain = domains.random() // Выбираем случайный домен из списка
-        return "$randomUsername@$randomDomain"
-    }
-
-    fun generateRandomString(length: Int): String {
-        val characters = ('a'..'z') + ('0'..'9') // Символы для имени пользователя
-        return (1..length)
-            .map { characters.random() }
-            .joinToString("")
-    }
-
     @Test
     fun testPostRequest() = testApplication {
         application {
@@ -94,6 +117,7 @@ class PostRequestTest {
         }
 
         val email = generateRandomEmail()
+
         val response = client.post("/auth/register") {
             contentType(ContentType.Application.Json)
             setBody("""{"username": "Илья", "email": "${email}", "password": "Parol1810!"}""")
